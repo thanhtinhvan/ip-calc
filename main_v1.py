@@ -23,7 +23,7 @@ def calcBroadcast(ip_binary_string, submask_bit_octet_string):
     #1. invert all bit of submask
     inv_submask_string = ""
     for i in range(len(submask_bit_octet_string)):
-        if submask_bit_octet_string[i] == "0":
+        if submask_bit_octet_string[i] == "0": 
             inv_submask_string += "1"
         elif submask_bit_octet_string[i] == "1":
             inv_submask_string += "0"
