@@ -13,6 +13,11 @@ def decimalToBinary(num):
 def binaryToDecimal(binary_string):
     return int(binary_string,2) 
 
+#function convert list of number to IP string. Ex: [192, 168, 1, 1] -> "192.168.1.1"
+def convertListToString(lst_number):
+    lst_string = list(map(str, lst_number))
+    return ".".join(lst_string)
+
 #function to calculate broadcask base on ip and submaks
 def calcBroadcast(ip_binary_string, submask_bit_octet_string):
     '''
@@ -78,11 +83,6 @@ def inputIP():      #return IP and IP in binary string
             print("IP address can not begin with 0. Try again")
             continue
 
-        #check the last octet IP address can not be 0
-        if ip_split[-1] == "0":
-            print("The last octet of IP address can not be 0. Try again")
-            continue
-
         #convert IP string to list of int number
         ip_number_list = []     #list of number of IP octet
         ip_bit_list = []        #list of binary of IP octet
@@ -91,7 +91,7 @@ def inputIP():      #return IP and IP in binary string
             try:
                 ip_int = int(ip_split[i])
                 #check if any octet greater than 255
-                if ip_int>=255 or ip_int<0:
+                if ip_int>255 or ip_int<0:
                     print("Octet can not be greater than 255 or smaller than 0")
                     isInvalid = True
                     continue
@@ -191,51 +191,86 @@ def inputSubmask():
        
 
 if __name__ == "__main__":
-    # STEP 1: input IP
-    ip, ip_number_list, ip_binary_string = inputIP()
+    while True:
+        # STEP 1: input IP
+        ip, ip_number_list, ip_binary_string = inputIP()
+        
+        #check if private network
+        if ip_number_list[0] == 10 or \
+            (ip_number_list[0] == 172 and (ip_number_list[1] >= 16 and ip_number_list[1] <= 31)) or \
+            (ip_number_list[0] == 192 and ip_number_list[1] == 168):
+            privateNetwork = "(Private Network)"
+        else:
+            privateNetwork = ""
+        #STEP 2: input subnet mask
+        submask, submask_number_list, submask_bit_octet_string = inputSubmask()
 
-    #STEP 2: input subnet mask
-    submask, submask_number_list, submask_bit_octet_string = inputSubmask()
+        #count network bits (count how many bit 1 in subnetting string)
+        network_bits = submask_bit_octet_string.count("1")
+        #count host bits (count how many bit 0 in subnetting string)
+        host_bits = submask_bit_octet_string.count("0")
 
-    #count network bits (count how many bit 1 in subnetting string)
-    network_bits = submask_bit_octet_string.count("1")
-    #count host bits (count how many bit 0 in subnetting string)
-    host_bits = submask_bit_octet_string.count("0")
+        #STEP 4: Determine the number of valid host
+        #calculate number of valid host
+        no_valid_host = 2**host_bits - 2
 
-    #STEP 4: Determine the number of valid host
-    #calculate number of valid host
-    no_valid_host = 2**host_bits - 2
+        #STEP 5 : Determine the Wildcard mask
+        wildcard_string_list = []     #wildcard mask in Decimal
+        wildcard_bin_list = []     #wildcard mask in binary
+        for i in range(4):
+            sub = 255 - submask_number_list[i]  #subtract subnet mask
+            wildcard_string_list.append(str(sub))
+            wildcard_binary = decimalToBinary(sub)
+            wildcard_bin_list.append(wildcard_binary)
+        #convert wildcard mask to string
+        wildcard_string = ".".join(wildcard_string_list)
+        wildcard_bin_string = ".".join(wildcard_bin_list) 
 
-    #STEP 5 : Determine the Wildcard mask
-    wildcard_string_list = []     #wildcard mask in Decimal
-    wildcard_bin_list = []     #wildcard mask in binary
-    for i in range(4):
-        sub = 255 - submask_number_list[i]  #subtract subnet mask
-        wildcard_string_list.append(str(sub))
-        wildcard_binary = decimalToBinary(sub)
-        wildcard_bin_list.append(wildcard_binary)
-    #convert wildcard mask to string
-    wildcard_string = ".".join(wildcard_string_list)
-    wildcard_bin_string = ".".join(wildcard_bin_list) 
+        #STEP 6: Determine the network address
+        #change last octet of IP address to 0 (192.168.1.1 --> 192.168.1.0)
+        network_address_list = ip_number_list.copy()
+        network_address_list[-1] = 0
+        network_address_binary = ip_binary_string[:-8]      #get IP binary string except last 8 bit and change last 8 bits to "00000000"
+        network_address_binary += "00000000"
+        #convert network address to string
+        network_address_string = convertListToString(network_address_list)
 
-    #STEP 6: Determine the network address
-    #change last octet of IP address to 0 (192.168.1.1 --> 192.168.1.0)
-    network_address_list = ip_number_list.copy()
-    network_address_list[-1] = 0
-    network_address_binary = ip_binary_string[:-8]      #get IP binary string except last 8 bit and change last 8 bits to "00000000"
-    network_address_binary += "00000000"
-    #convert network address to string
-    network_address_string_list = list(map(str, network_address_list))
-    network_address_string = ".".join(network_address_string_list)
+        #calculate broadcast address
+        broadcast_string, broadcast_binary = calcBroadcast(ip_binary_string, submask_bit_octet_string)
 
-    #calculate broadcast address
-    broadcast_string, broadcast_binary = calcBroadcast(ip_binary_string, submask_bit_octet_string)
+        #Calculate first/last usable address
+        first_usable_ip = ip_number_list.copy()
+        first_usable_ip[-1] = 1 #first usable ip will end with 1
+        first_usable_ip_string = convertListToString(first_usable_ip)   #convert list of octet to IP string
+        
+        #get IP binary string except last 8 bit and change last 8 bits to "00000001"
+        first_usable_ip_binary_string = ip_binary_string[:-8]
+        first_usable_ip_binary_string += "00000001"
 
-    #STEP 3: OUTPUT
-    print("\n")
-    print("IP address:        {}     {}".format(ip, ip_binary_string))
-    print("Subnet Netmask:    {}     {}".format(submask, submask_bit_octet_string))
-    print("Network address:   {}     {}".format(network_address_string, network_address_binary))
-    print("Broadcast address: {}     {}".format(broadcast_string, broadcast_binary))
-    print("Wildcard mask:     {}     {}".format(wildcard_string, wildcard_bin_string))
-    print("Number of usable host: {}".format(no_valid_host))
+        #Calculate last usable address
+        #last usable address = broadcast - 1
+        #split separate octet of broadcast
+        last_usable_ip_string_list_calc = broadcast_string.split(".")
+        #get last octet and minus 1
+        last_octet = int(last_usable_ip_string_list_calc[-1]) - 1
+        last_usable_ip_string_list_calc[-1] = str(last_octet)
+        #convert list of octet to IP string
+        last_usable_ip_string = ".".join(last_usable_ip_string_list_calc)
+        #convert last octet to binary
+        last_octet_binary = decimalToBinary(last_octet)
+        #get broadcast binary string except last 8 bit and replace last 8 bits with last_octet_binary
+        last_usable_ip_binary_string = broadcast_binary[:-8]
+        last_usable_ip_binary_string += last_octet_binary
+
+
+        #STEP 3: OUTPUT
+        print("\n")
+        print("IP address:             {:<15s}    {:>12s}".format(ip, ip_binary_string))
+        print("Subnet Netmask:         {:<15s}    {:>12s}".format(submask, submask_bit_octet_string))
+        print("Network address:        {:<15s}    {:>12s}".format(network_address_string, network_address_binary))
+        print("First usable IP address:{:<15s}    {:>12s}".format(first_usable_ip_string, first_usable_ip_binary_string))
+        print("Last usable IP address: {:<15s}    {:>12s}".format(last_usable_ip_string, last_usable_ip_binary_string))
+        print("Broadcast address:      {:<15s}    {:>12s}".format(broadcast_string, broadcast_binary))
+        print("Wildcard mask:          {:<15s}    {:>12s}".format(wildcard_string, wildcard_bin_string))
+        print("Number of usable host:  {:<15d}    {:>12s}".format(no_valid_host, privateNetwork))
+        print("\n")
